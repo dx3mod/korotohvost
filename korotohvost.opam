@@ -8,6 +8,7 @@ depends: [
   "ocaml"
   "dune" {>= "3.6"}
   "dream"
+  "dream-html"
   "odoc" {with-doc}
 ]
 build: [

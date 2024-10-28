@@ -1,3 +1,3 @@
 # korotohvost
 
-The tiny URL shorter for your localhost. <3
+A tiny URL shortener for your localhost. <3

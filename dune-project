@@ -12,5 +12,5 @@
 
 (package
  (name korotohvost)
- (synopsis "Tiny URL shorter")
- (depends ocaml dune dream))
+ (synopsis "Tiny URL shortener")
+ (depends ocaml dune dream dream-html))

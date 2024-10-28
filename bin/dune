@@ -1,4 +1,6 @@
 (executable
  (name main)
  (public_name korotohvost)
- (libraries korotohvost dream))
+ (libraries korotohvost dream dream-html)
+ (preprocess
+  (pps lwt_ppx)))
