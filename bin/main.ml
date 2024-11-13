@@ -1,41 +1,6 @@
 open Lwt.Infix
 open Korotohvost
 
-module Pages = struct
-  let mustache_of_file filename =
-    In_channel.(with_open_text filename input_all) |> Mustache.of_string
-
-  let index = mustache_of_file "static/templates/index.mustache.html"
-
-  let render_index ~title =
-    Mustache.render index (`O [ ("title", `String title) ])
-
-  let short_url_info =
-    mustache_of_file "static/templates/short-url-result.mustache.html"
-
-  let render_short_url_info ~alias ~original_url ~domain ~clicks ~expire_at =
-    Mustache.render short_url_info
-      (`O
-        [
-          ("alias", `String alias);
-          ("original_url", `String original_url);
-          ("domain", `String domain);
-          ( "metrics",
-            `O
-              [
-                ("views", `String (string_of_int clicks));
-                ("expire", `String (Option.value ~default:"Never" expire_at));
-              ] );
-        ])
-
-  let not_found_short_url =
-    mustache_of_file "static/templates/not-found-short-url.mustache.html"
-
-  let render_not_found_short_url ~alias message =
-    Mustache.render not_found_short_url
-      (`O [ ("short-url-alias", `String alias); ("message", `String message) ])
-end
-
 module Routes (Env : sig
   val title : string
   val domain : string
@@ -64,7 +29,9 @@ struct
           Dream.redirect req (Printf.sprintf "/i/%s" alias)
         with Caqti_error.Exn e ->
           Dream.log "%a" Caqti_error.pp e;
-          Dream.empty `Bad_Request)
+          Pages.render_failed ~title ~header:"Failed to create alias for URL!"
+          @@ Printf.sprintf "The '%s' alias already exist!" alias
+          |> Dream.html ~status:`Bad_Request)
     | _ -> Dream.empty `Bad_Request
 
   let redirect_to_original_url req =
