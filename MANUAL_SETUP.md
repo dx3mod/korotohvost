@@ -26,3 +26,7 @@ $ sqlite3 your-db.sqlite3 < migrations/base.sql
 ```console
 $ dune exec korotohvost -- --help
 ```
+
+```console
+$ dune build --profile release
+```

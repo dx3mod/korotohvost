@@ -55,6 +55,10 @@ struct
     let expire_of_string = function
       | "never" -> `Never
       | "10min" -> `Minutes 10
+      | "1day" -> `Days 1
+      | "1week" -> `Weeks 1
+      | "6months" -> `Months 6
+      | "1year" -> `Years 1
       | s -> raise (Invalid_argument s)
     in
 

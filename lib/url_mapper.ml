@@ -30,6 +30,10 @@ let insert_alias (module Db : Caqti_lwt.CONNECTION) ~alias ~original_url ~expire
     match expire with
     | `Never -> "NULL"
     | `Minutes minutes -> Printf.sprintf "+%d minutes" minutes
+    | `Days days -> Printf.sprintf "+%d days" days
+    | `Weeks weeks -> Printf.sprintf "+%d weeks" weeks
+    | `Months months -> Printf.sprintf "+%d months" months
+    | `Years years -> Printf.sprintf "+%d years" years
   in
 
   Db.exec Q.insert_alias (alias, original_url, expire)
