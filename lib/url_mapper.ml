@@ -2,12 +2,14 @@ module Q = struct
   open Caqti_request.Infix
   open Caqti_type.Std
 
-  let expire_condition = "(expire_at > datetime('now') or expire_at is NULL)"
+  let expire_condition =
+    "(expire_at > DATETIME(current_timestamp, 'localtime') or expire_at is \
+     NULL)"
 
   let insert_alias =
     (t3 string string string ->. unit)
       "INSERT INTO aliases (alias, original_url, expire_at) VALUES (?, ?, \
-       DATETIME('now', ?))"
+       DATETIME(current_timestamp, 'localtime', ?))"
 
   let update_clicks =
     (string ->. unit) "UPDATE aliases SET clicks = clicks + 1 WHERE alias = ?"
