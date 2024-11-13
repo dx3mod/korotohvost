@@ -1,6 +1,6 @@
 (executable
  (name main)
  (public_name korotohvost)
- (libraries korotohvost dream mustache)
+ (libraries korotohvost dream mustache caqti-lwt.unix caqti-driver-sqlite3)
  (preprocess
   (pps lwt_ppx)))

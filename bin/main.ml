@@ -1,10 +1,5 @@
+open Lwt.Infix
 open Korotohvost
-
-module type Environment = sig
-  val title : string
-  val https : bool
-  val domain : string
-end
 
 module Pages = struct
   let mustache_of_file filename =
@@ -12,102 +7,117 @@ module Pages = struct
 
   let index = mustache_of_file "static/templates/index.mustache.html"
 
+  let render_index ~title =
+    Mustache.render index (`O [ ("title", `String title) ])
+
   let short_url_info =
     mustache_of_file "static/templates/short-url-result.mustache.html"
 
+  let render_short_url_info ~alias ~original_url ~domain ~https ~clicks
+      ~expire_at =
+    Mustache.render short_url_info
+      (`O
+        [
+          ("alias", `String alias);
+          ("original_url", `String original_url);
+          ("domain", `String domain);
+          ("https", `String (if https then "https" else "http"));
+          ( "metrics",
+            `O
+              [
+                ("views", `String (string_of_int clicks));
+                ("expire", `String (Option.value ~default:"Never" expire_at));
+              ] );
+        ])
+
   let not_found_short_url =
     mustache_of_file "static/templates/not-found-short-url.mustache.html"
+
+  let render_not_found_short_url ~alias message =
+    Mustache.render not_found_short_url
+      (`O [ ("short-url-alias", `String alias); ("message", `String message) ])
 end
 
-module Routes (Env : Environment) (Url_map : Short_url_mapper.S) = struct
-  let index_page _ =
-    Mustache.render Pages.index (`O [ ("title", `String Env.title) ])
-    |> Dream.html
+module Routes (Env : sig
+  val title : string
+  val domain : string
+  val https : bool
+end) =
+struct
+  open Env
 
-  let redirect_to_origin_url req =
-    let short_url_alias = Dream.param req "url" in
+  let index _ = Pages.render_index ~title |> Dream.html
 
-    match Url_map.get_original_url short_url_alias with
-    | Ok original_url -> Dream.redirect req original_url
-    | Error `Expired ->
-        Mustache.render Pages.not_found_short_url
-          (`O
-            [
-              ("short-url-alias", `String short_url_alias);
-              ("message", `String "This URL was expired.");
-            ])
-        |> Dream.html ~status:`Not_Found
-    | Error `Not_found ->
-        Mustache.render Pages.not_found_short_url
-          (`O
-            [
-              ("short-url-alias", `String short_url_alias);
-              ("message", `String "Not found this URL in our storage...");
-            ])
-        |> Dream.html ~status:`Not_Found
+  let make_alias req =
+    let make_alias ~expire ~original_url ~alias =
+      Dream.sql req @@ fun db ->
+      Url_mapper.insert_alias db ~alias ~original_url ~expire
+      >>= Caqti_lwt.or_fail
+    in
 
-  let make_short req =
+    let expire_of_string = function
+      | "never" -> `Never
+      | "10min" -> `Minutes 10
+      | s -> raise (Invalid_argument s)
+    in
+
     match%lwt Dream.form ~csrf:false req with
     | `Ok
-        [ ("expire", _); ("original-url", original_url); ("short-url", alias) ]
-      -> (
-        match Url_map.create_short_url ~original_url ~alias ~expire:Never with
-        | Error `Exist ->
-            Dream.html ~status:`Bad_Request "The short URL is already exist!"
-        | Ok () -> Dream.redirect req (Printf.sprintf "/i/%s" alias))
+        [
+          ("expire", expire);
+          ("original-url", original_url);
+          ("short-url", alias);
+        ] -> (
+        try%lwt
+          make_alias ~expire:(expire_of_string expire) ~original_url ~alias;%lwt
+          Dream.redirect req (Printf.sprintf "/i/%s" alias)
+        with Caqti_error.Exn e ->
+          Dream.log "%a" Caqti_error.pp e;
+          Dream.empty `Bad_Request)
     | _ -> Dream.empty `Bad_Request
 
-  let get_short_url_info req =
-    let short_url_alias = Dream.param req "url" in
-    let short_url_record = Url_map.get_alias_record short_url_alias in
-    (* let short_url_stats = Url_map.get_stats_of_short_url url_alias in *)
-    match short_url_record with
+  let redirect_to_original_url req =
+    let alias = Dream.param req "alias" in
+    Dream.sql req @@ fun db ->
+    match%lwt
+      Url_mapper.find_original_url_by_alias db alias >>= Caqti_lwt.or_fail
+    with
+    | Some original_url ->
+        Url_mapper.update_clicks db alias >>= Caqti_lwt.or_fail;%lwt
+        Dream.redirect req original_url
     | None ->
-        Mustache.render Pages.not_found_short_url
-          (`O
-            [
-              ("short-url-alias", `String short_url_alias);
-              ("message", `String "Not found this URL in our storage...");
-            ])
+        Pages.render_not_found_short_url ~alias
+          "Not found this URL in our storage..."
         |> Dream.html ~status:`Not_Found
-    | Some short_url_record ->
-        Mustache.render Pages.short_url_info
-          (`O
-            [
-              ("alias", `String short_url_alias);
-              ("original_url", `String short_url_record.original_url);
-              ("domain", `String Env.domain);
-              ("https", `String (if Env.https then "https" else "http"));
-              ( "metrics",
-                `O
-                  [
-                    ( "views",
-                      `String (string_of_int !(short_url_record.metrics.views))
-                    );
-                  ] );
-            ])
+
+  let get_alias_record req =
+    let alias = Dream.param req "alias" in
+    Dream.sql req @@ fun db ->
+    match%lwt Url_mapper.find_alias_record db alias >>= Caqti_lwt.or_fail with
+    | Some (alias, original_url, clicks, expire_at) ->
+        Pages.render_short_url_info ~alias ~original_url ~clicks ~expire_at
+          ~https ~domain
         |> Dream.html
+    | None ->
+        Pages.render_not_found_short_url ~alias
+          "Not found this URL in our storage..."
+        |> Dream.html ~status:`Not_Found
 end
 
+module R = Routes (struct
+  let title = "chads shorter"
+  let domain = "localhost:8080"
+  let https = false
+end)
+
 let () =
-  let open Dream in
-  let module Url_map = Short_url_mapper.In_memory () in
-  let module Routes =
-    Routes
-      (struct
-        let title = "chads shorter"
-        let domain = "localhost:8080"
-        let https = false
-      end)
-      (Url_map)
-  in
-  run @@ logger
-  @@ router
-       Routes.
-         [
-           get "/" index_page;
-           get "/s/:url" redirect_to_origin_url;
-           get "/i/:url" get_short_url_info;
-           post "/make" make_short;
-           get "/static/**" (static "static/public");
-         ]
+  Dream.run @@ Dream.logger
+  @@ Dream.sql_pool "sqlite3:.dev.demo/db"
+  @@ Dream.router
+       [
+         Dream.get "/" R.index;
+         Dream.post "/s" R.make_alias;
+         Dream.get "/s/:alias" R.redirect_to_original_url;
+         Dream.get "/i/:alias" R.get_alias_record;
+         Dream.get "/static/**" (Dream.static "static/public");
+       ]
