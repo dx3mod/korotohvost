@@ -2,36 +2,12 @@
 
 A tiny URL shortener for your localhost. <3
 
-> [!WARNING]
-> In active development now!
+**Features**
 
-## Manual Usage
+- [x] Anonymous
+- [x] Expiration, Views
+- [x] Sqlite3 database 
 
-### Installation 
+**Documentation**
 
-**Requirements**
-
-- [OCaml] >= 4.14
-- [Sqlite3]
-
-Install latest development version by [OPAM] package manager.
-```console
-$ opam pin https://github.com/dx3mod/korotohvost.git 
-```
-
-### Prepare database
-
-Setup tables.
-```console
-$ sqlite3 your-db.sqlite3 < migrations/base.sql
-```
-
-[OCaml]: https://ocaml.org/
-[OPAM]: https://opam.ocaml.org/
-[Sqlite3]: https://www.sqlite.org/
-
-### Run 
-
-```console
-$ dune exec korotohvost -- --help
-```
+- [Manual setup](./MANUAL_SETUP.md)
