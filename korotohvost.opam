@@ -8,7 +8,10 @@ depends: [
   "ocaml"
   "dune" {>= "3.6"}
   "dream"
-  "dream-html"
+  "caqti-lwt-unix"
+  "mustache"
+  "caqti-driver-sqlite3"
+  "lwt_ppx"
   "odoc" {with-doc}
 ]
 build: [

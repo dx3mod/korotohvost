@@ -13,4 +13,11 @@
 (package
  (name korotohvost)
  (synopsis "Tiny URL shortener")
- (depends ocaml dune dream dream-html))
+ (depends
+  ocaml
+  dune
+  dream
+  caqti-lwt-unix
+  mustache
+  caqti-driver-sqlite3
+  lwt_ppx))
