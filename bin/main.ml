@@ -52,16 +52,6 @@ struct
       >>= Caqti_lwt.or_fail
     in
 
-    let expire_of_string = function
-      | "never" -> `Never
-      | "10min" -> `Minutes 10
-      | "1day" -> `Days 1
-      | "1week" -> `Weeks 1
-      | "6months" -> `Months 6
-      | "1year" -> `Years 1
-      | s -> raise (Invalid_argument s)
-    in
-
     match%lwt Dream.form ~csrf:false req with
     | `Ok
         [
@@ -70,7 +60,7 @@ struct
           ("short-url", alias);
         ] -> (
         try%lwt
-          make_alias ~expire:(expire_of_string expire) ~original_url ~alias;%lwt
+          make_alias ~expire:(Expiration.of_string expire) ~original_url ~alias;%lwt
           Dream.redirect req (Printf.sprintf "/i/%s" alias)
         with Caqti_error.Exn e ->
           Dream.log "%a" Caqti_error.pp e;
