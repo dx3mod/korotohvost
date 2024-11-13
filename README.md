@@ -33,5 +33,5 @@ $ sqlite3 your-db.sqlite3 < migrations/base.sql
 ### Run 
 
 ```console
-$ dune exec korotohvost 
+$ dune exec korotohvost -- --help
 ```

@@ -13,15 +13,13 @@ module Pages = struct
   let short_url_info =
     mustache_of_file "static/templates/short-url-result.mustache.html"
 
-  let render_short_url_info ~alias ~original_url ~domain ~https ~clicks
-      ~expire_at =
+  let render_short_url_info ~alias ~original_url ~domain ~clicks ~expire_at =
     Mustache.render short_url_info
       (`O
         [
           ("alias", `String alias);
           ("original_url", `String original_url);
           ("domain", `String domain);
-          ("https", `String (if https then "https" else "http"));
           ( "metrics",
             `O
               [
@@ -41,7 +39,6 @@ end
 module Routes (Env : sig
   val title : string
   val domain : string
-  val https : bool
 end) =
 struct
   open Env
@@ -96,7 +93,7 @@ struct
     match%lwt Url_mapper.find_alias_record db alias >>= Caqti_lwt.or_fail with
     | Some (alias, original_url, clicks, expire_at) ->
         Pages.render_short_url_info ~alias ~original_url ~clicks ~expire_at
-          ~https ~domain
+          ~domain
         |> Dream.html
     | None ->
         Pages.render_not_found_short_url ~alias
@@ -104,15 +101,37 @@ struct
         |> Dream.html ~status:`Not_Found
 end
 
-module R = Routes (struct
-  let title = "chads shorter"
-  let domain = "localhost:8080"
-  let https = false
-end)
+module Make_cli_vars () = struct
+  let title = ref "my-title"
+  let host = ref "localhost"
+  let port = ref 8080
+  let domain = ref (Printf.sprintf "%s:%d" !host !port)
+  let database = ref ""
+
+  let speclist =
+    [
+      ("--port", Arg.Set_int port, "port (default 8080)");
+      ("--host", Arg.Set_string host, "hostname (default localhost)");
+      ("--title", Arg.Set_string title, "your title");
+      ("--domain", Arg.Set_string domain, "for publish (default localhost:8080)");
+      ("--database", Arg.Set_string database, "path to sqlite3 file");
+    ]
+end
 
 let () =
-  Dream.run @@ Dream.logger
-  @@ Dream.sql_pool "sqlite3:.dev.demo/db"
+  let module Cli_vars = Make_cli_vars () in
+  Arg.parse Cli_vars.speclist ignore "...";
+
+  if !Cli_vars.database = "" then
+    failwith "Set --database path to sqlite3 file!";
+
+  let module R = Routes (struct
+    let title = !Cli_vars.title
+    let domain = !Cli_vars.domain
+  end) in
+  Dream.run ~port:!Cli_vars.port
+  @@ Dream.logger
+  @@ Dream.sql_pool ("sqlite3:" ^ !Cli_vars.database)
   @@ Dream.router
        [
          Dream.get "/" R.index;
