@@ -6,35 +6,45 @@ module type Environment = sig
   val domain : string
 end
 
+module Pages = struct
+  let mustache_of_file filename =
+    In_channel.(with_open_text filename input_all) |> Mustache.of_string
+
+  let index = mustache_of_file "static/templates/index.mustache.html"
+
+  let short_url_info =
+    mustache_of_file "static/templates/short-url-result.mustache.html"
+
+  let not_found_short_url =
+    mustache_of_file "static/templates/not-found-short-url.mustache.html"
+end
+
 module Routes (Env : Environment) (Url_map : Short_url_mapper.S) = struct
-  let short_url_result_page =
-    In_channel.(
-      with_open_text "static/templates/short-url-result.mustache.html" input_all)
-    |> Mustache.of_string
-
-  let not_short_url_page =
-    In_channel.(
-      with_open_text "static/templates/not-found-short-url.mustache.html"
-        input_all)
-    |> Mustache.of_string
-
   let index_page _ =
-    let index_page =
-      In_channel.(
-        with_open_text "static/templates/index.mustache.html" input_all)
-      |> Mustache.of_string
-    in
-    Dream.html
-    @@ Mustache.render index_page (`O [ ("title", `String Env.title) ])
+    Mustache.render Pages.index (`O [ ("title", `String Env.title) ])
+    |> Dream.html
 
   let redirect_to_origin_url req =
-    let short_url = Dream.param req "url" in
+    let short_url_alias = Dream.param req "url" in
 
-    match Url_map.get_original_url short_url with
+    match Url_map.get_original_url short_url_alias with
     | Ok original_url -> Dream.redirect req original_url
-    | Error `Expired -> Dream.html ~status:`Not_Found "This URL was expired."
+    | Error `Expired ->
+        Mustache.render Pages.not_found_short_url
+          (`O
+            [
+              ("short-url-alias", `String short_url_alias);
+              ("message", `String "This URL was expired.");
+            ])
+        |> Dream.html ~status:`Not_Found
     | Error `Not_found ->
-        Dream.html ~status:`Not_Found "Not found this URL in our storage..."
+        Mustache.render Pages.not_found_short_url
+          (`O
+            [
+              ("short-url-alias", `String short_url_alias);
+              ("message", `String "Not found this URL in our storage...");
+            ])
+        |> Dream.html ~status:`Not_Found
 
   let make_short req =
     match%lwt Dream.form ~csrf:false req with
@@ -48,18 +58,23 @@ module Routes (Env : Environment) (Url_map : Short_url_mapper.S) = struct
     | _ -> Dream.empty `Bad_Request
 
   let get_short_url_info req =
-    let alias = Dream.param req "url" in
-    let short_url_record = Url_map.get_alias_record alias in
+    let short_url_alias = Dream.param req "url" in
+    let short_url_record = Url_map.get_alias_record short_url_alias in
     (* let short_url_stats = Url_map.get_stats_of_short_url url_alias in *)
     match short_url_record with
     | None ->
-        Mustache.render not_short_url_page (`O [ ("alias", `String alias) ])
-        |> Dream.html
-    | Some short_url_record ->
-        Mustache.render short_url_result_page
+        Mustache.render Pages.not_found_short_url
           (`O
             [
-              ("alias", `String alias);
+              ("short-url-alias", `String short_url_alias);
+              ("message", `String "Not found this URL in our storage...");
+            ])
+        |> Dream.html ~status:`Not_Found
+    | Some short_url_record ->
+        Mustache.render Pages.short_url_info
+          (`O
+            [
+              ("alias", `String short_url_alias);
               ("original_url", `String short_url_record.original_url);
               ("domain", `String Env.domain);
               ("https", `String (if Env.https then "https" else "http"));
