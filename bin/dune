@@ -1,6 +1,6 @@
 (executable
  (name main)
  (public_name korotohvost)
- (libraries korotohvost dream dream-html)
+ (libraries korotohvost dream mustache)
  (preprocess
   (pps lwt_ppx)))

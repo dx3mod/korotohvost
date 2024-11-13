@@ -7,9 +7,25 @@ module type Environment = sig
 end
 
 module Routes (Env : Environment) (Url_map : Short_url_mapper.S) = struct
-  let index_page =
-    let page = Index_page.render ~title_service:Env.title in
-    fun _ -> Dream_html.respond page
+  let short_url_result_page =
+    In_channel.(
+      with_open_text "static/templates/short-url-result.mustache.html" input_all)
+    |> Mustache.of_string
+
+  let not_short_url_page =
+    In_channel.(
+      with_open_text "static/templates/not-found-short-url.mustache.html"
+        input_all)
+    |> Mustache.of_string
+
+  let index_page _ =
+    let index_page =
+      In_channel.(
+        with_open_text "static/templates/index.mustache.html" input_all)
+      |> Mustache.of_string
+    in
+    Dream.html
+    @@ Mustache.render index_page (`O [ ("title", `String Env.title) ])
 
   let redirect_to_origin_url req =
     let short_url = Dream.param req "url" in
@@ -22,7 +38,9 @@ module Routes (Env : Environment) (Url_map : Short_url_mapper.S) = struct
 
   let make_short req =
     match%lwt Dream.form ~csrf:false req with
-    | `Ok [ ("original-url", original_url); ("short-url", alias) ] -> (
+    | `Ok
+        [ ("expire", _); ("original-url", original_url); ("short-url", alias) ]
+      -> (
         match Url_map.create_short_url ~original_url ~alias ~expire:Never with
         | Error `Exist ->
             Dream.html ~status:`Bad_Request "The short URL is already exist!"
@@ -35,12 +53,25 @@ module Routes (Env : Environment) (Url_map : Short_url_mapper.S) = struct
     (* let short_url_stats = Url_map.get_stats_of_short_url url_alias in *)
     match short_url_record with
     | None ->
-        Dream.html ~status:`Not_Found
-        @@ Printf.sprintf "Not found information about alias <b>%s</b>." alias
+        Mustache.render not_short_url_page (`O [ ("alias", `String alias) ])
+        |> Dream.html
     | Some short_url_record ->
-        let open Env in
-        Short_url_page.render ~alias ~domain ~https ~short_url_record
-        |> Dream_html.respond
+        Mustache.render short_url_result_page
+          (`O
+            [
+              ("alias", `String alias);
+              ("original_url", `String short_url_record.original_url);
+              ("domain", `String Env.domain);
+              ("https", `String (if Env.https then "https" else "http"));
+              ( "metrics",
+                `O
+                  [
+                    ( "views",
+                      `String (string_of_int !(short_url_record.metrics.views))
+                    );
+                  ] );
+            ])
+        |> Dream.html
 end
 
 let () =
@@ -63,4 +94,5 @@ let () =
            get "/s/:url" redirect_to_origin_url;
            get "/i/:url" get_short_url_info;
            post "/make" make_short;
+           get "/static/**" (static "static/public");
          ]

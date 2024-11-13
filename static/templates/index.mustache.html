@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{title}}</title>
+    <link rel="stylesheet" href="static/simple.min.css">
+</head>
+
+<body>
+
+    <main>
+        <div>
+            <h4 style="margin-bottom: 0;">Welcome to <i>{{title}}</i> shortening service!</h4>
+            <p style="margin-top: 0.3em;">This site powered by <a
+                    href="https://github.com/dx3mod/korotohvost">korotohvost</a>.</p>
+        </div>
+
+        <div>
+
+            <h6 style="margin-bottom: 0.5em;">Short URL maker</h6>
+
+            <form action="/make" method="post">
+                <label for="original-url">Original URL</label>
+                <input type="text" name="original-url" id="original-url">
+
+                <label for="short-url">Short URL</label>
+                <input type="text" name="short-url" id="short-url">
+
+                <div>
+                    <label style="display: inline;" for="expire">Expiration: </label>
+
+                    <select id="expire" name="expire">
+                        <option value="never">Never</option>
+                        <option value="10min">10 Minutes</option>
+                        <option value="1day">1 Day</option>
+                        <option value="1week">1 Week</option>
+                        <option value="6months">6 Months</option>
+                        <option value="1year">1 Year</option>
+                    </select>
+                </div>
+
+                <p>
+                    <input type="submit" value="Make">
+                </p>
+            </form>
+
+        </div>
+
+        <div></div>
+    </main>
+
+
+</body>
+
+</html>
