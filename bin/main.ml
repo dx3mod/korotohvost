@@ -8,7 +8,7 @@ end) =
 struct
   open Env
 
-  let index _ = Pages.render_index ~title |> Dream.html
+  let index = Fun.const (Pages.render_index ~title |> Dream.html)
 
   let make_alias req =
     let make_alias ~expire ~original_url ~alias =
