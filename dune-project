@@ -17,7 +17,7 @@
   ocaml
   dune
   dream
-  caqti-lwt-unix
+  caqti-lwt
   mustache
   caqti-driver-sqlite3
   lwt_ppx))
