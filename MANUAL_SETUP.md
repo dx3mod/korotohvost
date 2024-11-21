@@ -7,7 +7,7 @@
 
 Install latest development version by [OPAM] package manager.
 ```console
-$ opam pin https://github.com/dx3mod/korotohvost.git 
+$ opam install . --deps-only
 ```
 
 ### Prepare database

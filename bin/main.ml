@@ -8,7 +8,7 @@ end) =
 struct
   open Env
 
-  let index = Fun.const (Pages.render_index ~title |> Dream.html)
+  let index _ = Pages.render_index ~title |> Dream.html
 
   let make_alias req =
     let make_alias ~expire ~original_url ~alias =
@@ -66,7 +66,7 @@ module Make_cli_vars () = struct
   let title = ref "my-title"
   let host = ref "localhost"
   let port = ref 8080
-  let domain = ref (Printf.sprintf "%s:%d" !host !port)
+  let domain = ref "localhost"
   let database = ref ""
 
   let speclist =
@@ -88,9 +88,9 @@ let () =
 
   let module R = Routes (struct
     let title = !Cli_vars.title
-    let domain = !Cli_vars.domain
+    let domain = Cli_vars.(Printf.sprintf "%s:%d" !domain !port)
   end) in
-  Dream.run ~port:!Cli_vars.port
+  Dream.run ~port:!Cli_vars.port ~interface:!Cli_vars.host
   @@ Dream.logger
   @@ Dream.sql_pool ("sqlite3:" ^ !Cli_vars.database)
   @@ Dream.router
