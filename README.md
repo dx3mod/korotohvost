@@ -2,6 +2,8 @@
 
 A tiny URL shortener for your localhost. <3
 
+[**Screenshots**](https://imgur.com/a/SqD3XM1)
+
 **Features**
 
 - [x] Anonymous
